@@ -7,6 +7,21 @@ import (
 	"strings"
 )
 
+var builtins = []string{
+	"echo",
+	"exit",
+	"type",
+}
+
+func indexOf(element string, data []string) int {
+	for k, v := range data {
+		if element == v {
+			return k
+		}
+	}
+	return -1
+}
+
 func main() {
 
 	for {
@@ -36,6 +51,9 @@ func main() {
 		case "echo":
 			echo(tokens[1:])
 			continue
+		case "type":
+			type_(tokens[1:])
+			continue
 		default:
 			fmt.Fprintf(os.Stdout, "%s: command not found\n", command)
 		}
@@ -49,4 +67,14 @@ func exit() {
 
 func echo(tokens []string) {
 	fmt.Println(strings.Join(tokens, " "))
+}
+
+func type_(tokens []string) {
+	command := strings.Join(tokens, " ")
+	if indexOf(command, builtins) == -1 {
+		fmt.Fprintf(os.Stdout, "%s: not found\n", command)
+		return
+	}
+
+	fmt.Fprintf(os.Stdout, "%s is a shell builtin\n", command)
 }

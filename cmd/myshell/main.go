@@ -13,7 +13,7 @@ func main() {
 		fmt.Fprint(os.Stdout, "$ ")
 
 		// Wait for user input
-		val, err := bufio.NewReader(os.Stdin).ReadString('\n')
+		input, err := bufio.NewReader(os.Stdin).ReadString('\n')
 
 		if err != nil {
 			fmt.Fprint(os.Stdout, "Failed to read command")
@@ -21,7 +21,12 @@ func main() {
 		}
 
 		// Clean up val since it contains the delim char
-		command := strings.TrimSpace(val)
+		command := strings.TrimSpace(input)
+
+		switch command {
+		case "exit 0":
+			os.Exit(0)
+		}
 
 		fmt.Fprintf(os.Stdout, "%s: command not found\n", command)
 	}

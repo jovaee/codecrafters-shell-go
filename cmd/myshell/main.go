@@ -57,20 +57,33 @@ func echo(tokens []string) {
 func type_(tokens []string) {
 	path := os.Getenv("PATH")
 
-	exes := strings.Split(path, ":")
-	for _, token := range tokens {
+	dirs := strings.Split(path, ":")
+	for _, command := range tokens {
 		found := false
 
-		for _, e := range exes {
-			if strings.Contains(e, token) {
-				fmt.Fprintf(os.Stdout, "%s is %s\n", token, e)
-				found = true
+		for _, d := range dirs {
+
+			entries, err := os.ReadDir(d)
+			if err != nil {
+				fmt.Fprintf(os.Stdout, "type %s: failed to read directory %s", command, d)
+				continue
+			}
+
+			for _, e := range entries {
+				if e.Name() == command {
+					fmt.Fprintf(os.Stdout, "%s is %s/%s\n", command, d, command)
+					found = true
+					break
+				}
+			}
+
+			if found {
 				break
 			}
 		}
 
 		if !found {
-			fmt.Fprintf(os.Stdout, "%s: not found\n", token)
+			fmt.Fprintf(os.Stdout, "%s: not found\n", command)
 		}
 	}
 }

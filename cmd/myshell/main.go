@@ -23,12 +23,30 @@ func main() {
 		// Clean up val since it contains the delim char
 		command := strings.TrimSpace(input)
 
-		switch command {
-		case "exit 0":
-			os.Exit(0)
+		if command == "" {
+			continue
 		}
 
-		fmt.Fprintf(os.Stdout, "%s: command not found\n", command)
-	}
+		if command == "exit 0" {
+			exit()
+		}
 
+		tokens := strings.Split(command, " ")
+		switch tokens[0] {
+		case "echo":
+			echo(tokens[1:])
+			continue
+		default:
+			fmt.Fprintf(os.Stdout, "%s: command not found\n", command)
+		}
+	}
+}
+
+// Commands
+func exit() {
+	os.Exit(0)
+}
+
+func echo(tokens []string) {
+	fmt.Println(strings.Join(tokens, " "))
 }

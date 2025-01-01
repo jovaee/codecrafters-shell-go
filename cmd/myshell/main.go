@@ -7,6 +7,21 @@ import (
 	"strings"
 )
 
+var builtins = []string{
+	"echo",
+	"exit",
+	"type",
+}
+
+func indexOf(element string, data []string) int {
+	for k, v := range data {
+		if element == v {
+			return k
+		}
+	}
+	return -1
+}
+
 func main() {
 
 	for {
@@ -61,6 +76,13 @@ func type_(tokens []string) {
 	for _, command := range tokens {
 		found := false
 
+		// First check if it's a defined builtin
+		if indexOf(command, builtins) != -1 {
+			fmt.Fprintf(os.Stdout, "%s is a shell builtin\n", command)
+			continue
+		}
+
+		// If it's not a builtin then search through PATH
 		for _, d := range dirs {
 
 			entries, err := os.ReadDir(d)

@@ -8,17 +8,22 @@ import (
 )
 
 func main() {
-	fmt.Fprint(os.Stdout, "$ ")
 
-	// Wait for user input
-	val, err := bufio.NewReader(os.Stdin).ReadString('\n')
+	for {
+		fmt.Fprint(os.Stdout, "$ ")
 
-	if err != nil {
-		fmt.Fprint(os.Stdout, "Failed to read command")
+		// Wait for user input
+		val, err := bufio.NewReader(os.Stdin).ReadString('\n')
+
+		if err != nil {
+			fmt.Fprint(os.Stdout, "Failed to read command")
+			continue
+		}
+
+		// Clean up val since it contains the delim char
+		command := strings.TrimSpace(val)
+
+		fmt.Fprintf(os.Stdout, "%s: command not found\n", command)
 	}
 
-	// Clean up val since it contains the delim char
-	command := strings.TrimSpace(val)
-
-	fmt.Fprintf(os.Stdout, "%s: command not found\n", command)
 }

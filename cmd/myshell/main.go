@@ -65,7 +65,6 @@ func type_(tokens []string) {
 
 			entries, err := os.ReadDir(d)
 			if err != nil {
-				fmt.Fprintf(os.Stdout, "type %s: failed to read directory %s", command, d)
 				continue
 			}
 

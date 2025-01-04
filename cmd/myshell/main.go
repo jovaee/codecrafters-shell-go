@@ -69,6 +69,7 @@ func registerBuiltins() {
 	BuiltinRegister["echo"] = Command{Name: "echo", Type: BUILTIN, Func: echo}
 	BuiltinRegister["exit"] = Command{Name: "exit", Type: BUILTIN, Func: exit}
 	BuiltinRegister["type"] = Command{Name: "type", Type: BUILTIN, Func: type_}
+	BuiltinRegister["pwd"] = Command{Name: "pwd", Type: BUILTIN, Func: pwd}
 }
 
 func execExternal(c Command, args []string) {
@@ -126,6 +127,11 @@ func exit(args []string) {
 
 func echo(args []string) {
 	fmt.Println(strings.Join(args, " "))
+}
+
+func pwd(args []string) {
+	wd, _ := os.Getwd()
+	fmt.Fprintf(os.Stdout, "%s\n", wd)
 }
 
 func type_(args []string) {

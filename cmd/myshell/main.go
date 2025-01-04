@@ -133,13 +133,19 @@ func pwd(c Command, args []string) {
 
 func cd(c Command, args []string) {
 	if len(args) != 1 {
-		fmt.Fprintf(os.Stdout, "cd: too many arguments\n")
+		fmt.Fprintf(os.Stdout, "cd: incorrect amount of arguments\n")
 		return
 	}
 
-	err := os.Chdir(args[0])
+	home := os.Getenv("HOME")
+	to := strings.TrimSpace(args[0])
+	if to[0] == '~' {
+		to = strings.Replace(to, "~", home, 1)
+	}
+
+	err := os.Chdir(to)
 	if err != nil {
-		fmt.Fprintf(os.Stdout, "cd: %s: No such file or directory\n", args[0])
+		fmt.Fprintf(os.Stdout, "cd: %s: No such file or directory\n", to)
 	}
 }
 

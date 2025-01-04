@@ -21,7 +21,7 @@ type Command struct {
 	Name string
 	Type CommandType
 	Path string
-	Func func([]string)
+	Func func(Command, []string)
 }
 
 var BuiltinRegister = map[string]Command{}
@@ -56,11 +56,7 @@ func main() {
 			continue
 		}
 
-		if c.Type == BUILTIN {
-			c.Func(tokens[1:])
-		} else {
-			execExternal(c, tokens[1:])
-		}
+		c.Func(c, tokens[1:])
 	}
 }
 
@@ -70,13 +66,7 @@ func registerBuiltins() {
 	BuiltinRegister["exit"] = Command{Name: "exit", Type: BUILTIN, Func: exit}
 	BuiltinRegister["type"] = Command{Name: "type", Type: BUILTIN, Func: type_}
 	BuiltinRegister["pwd"] = Command{Name: "pwd", Type: BUILTIN, Func: pwd}
-}
-
-func execExternal(c Command, args []string) {
-	cmd := exec.Command(c.Name, args...)
-	out, _ := cmd.CombinedOutput()
-
-	fmt.Print(string(out))
+	BuiltinRegister["cd"] = Command{Name: "cd", Type: BUILTIN, Func: cd}
 }
 
 func getCommand(cname string) (Command, error) {
@@ -103,14 +93,21 @@ func loadExternalCommand(cname string) (Command, error) {
 			continue
 		}
 
-		return Command{Name: cname, Type: EXTERNAL, Path: d + "/" + cname}, nil
+		return Command{Name: cname, Type: EXTERNAL, Path: d + "/" + cname, Func: execute}, nil
 	}
 
 	return Command{}, errors.New("Command not found in path")
 }
 
 // Builtins
-func exit(args []string) {
+func execute(c Command, args []string) {
+	cmd := exec.Command(c.Name, args...)
+	out, _ := cmd.CombinedOutput()
+
+	fmt.Print(string(out))
+}
+
+func exit(c Command, args []string) {
 	if len(args) != 1 {
 		fmt.Println("exit: incorrect number of arguments")
 		return
@@ -125,16 +122,28 @@ func exit(args []string) {
 	os.Exit(code)
 }
 
-func echo(args []string) {
+func echo(c Command, args []string) {
 	fmt.Println(strings.Join(args, " "))
 }
 
-func pwd(args []string) {
-	wd, _ := os.Getwd()
-	fmt.Fprintf(os.Stdout, "%s\n", wd)
+func pwd(c Command, args []string) {
+	pwd, _ := os.Getwd()
+	fmt.Fprintf(os.Stdout, "%s\n", pwd)
 }
 
-func type_(args []string) {
+func cd(c Command, args []string) {
+	if len(args) != 1 {
+		fmt.Fprintf(os.Stdout, "cd: too many arguments\n")
+		return
+	}
+
+	err := os.Chdir(args[0])
+	if err != nil {
+		fmt.Fprintf(os.Stdout, "cd: %s: No such file or directory\n", args[0])
+	}
+}
+
+func type_(c Command, args []string) {
 
 	for _, a := range args {
 

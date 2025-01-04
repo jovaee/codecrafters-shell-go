@@ -4,10 +4,12 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 type CommandType string
@@ -37,6 +39,9 @@ func main() {
 		// Wait for user input
 		input, err := bufio.NewReader(os.Stdin).ReadString('\n')
 
+		if err == io.EOF {
+			return
+		}
 		if err != nil {
 			fmt.Fprint(os.Stdout, "Failed to read command")
 			continue
@@ -81,55 +86,81 @@ func registerBuiltins() {
 // Parse
 func parseArgs(s string) []string {
 
-	var pairs []byte
 	var args []string
 
 	n := 0
-	for i, c := range s {
-		// If a singlequote is found add to pairs if one isn't on the stack
-		// If one is on the stack then create a new argument
-		if c == '\'' {
-			// If two quotes are next to each other treat it as a continuous string
-			if (i+1 < len(s) && s[i+1] == byte(c)) || (i-1 >= 0 && s[i-1] == byte(c)) {
-				continue
+	for {
+		// fmt.Printf("=====\n")
+		// fmt.Printf("n=%d\n", n)
+
+		var r byte
+
+		if n >= len(s) {
+			break
+		}
+
+		switch s[n] {
+		case '\'':
+			r = '\''
+		case '"':
+			r = '"'
+		default:
+			r = 0
+		}
+
+		// Enclosing characters in single quotes preserves the literal value of each character within the quotes.
+		// ie just take the chars as is
+		if s[n] == r {
+			k := n
+			// fmt.Printf("quote\n")
+
+			for {
+				// fmt.Printf("quote inner full s=%s\n", s[k:])
+				i := strings.IndexByte(s[k+1:], s[n])
+				// fmt.Printf("quote inner i=%d\n", i)
+				// fmt.Printf("quote inner k=%d\n", k)
+
+				if i == -1 {
+					// Invalid quoting
+					return []string{}
+				}
+
+				i = k + i + 1
+
+				// If two quotes are next to each other treat it as a continuous string
+				if i < len(s)-1 && s[i] == s[i+1] {
+					k = i + 2
+					continue
+				} else {
+					k = i
+					break
+				}
 			}
 
-			if len(pairs) > 0 && pairs[len(pairs)-1] == '\'' {
-				pairs = pairs[:len(pairs)-1]
-				v := strings.ReplaceAll(s[n:i], "''", "")
-				args = append(args, v)
-			} else {
-				pairs = append(pairs, '\'')
+			// fmt.Printf("quote inner part s=%s\n", s[n+1:k])
+
+			v := string(s[n]) + string(s[n])
+			args = append(args, strings.ReplaceAll(s[n+1:k], v, ""))
+			n = k + 1
+			continue
+		} else if !unicode.IsSpace(rune(s[n])) {
+			i := strings.IndexFunc(s[n:], func(r rune) bool {
+				return r == '\'' || r == '"'
+			})
+			// fmt.Printf("normal i=%d\n", i)
+
+			if i == -1 {
+				i = len(s) + 1
 			}
 
-			n = i + 1 // Skip the starting single quote
+			args = append(args, strings.Fields(s[n:i-1])...)
+			n = i
 			continue
 		}
 
-		if len(pairs) == 0 {
-			// If the starting pointer is an empty space then simply skip the char
-			if s[n] == ' ' {
-				n += 1
-				continue
-			}
-
-			// If the following character is whitespace then create a new argument
-			if i+1 < len(s) && s[i+1] == ' ' {
-				args = append(args, s[n:i+1])
-				n = i + 1
-				continue
-			}
-		}
+		n += 1
 	}
 
-	if len(pairs) != 0 {
-		fmt.Fprintf(os.Stdout, "arguments not enclosed")
-		return []string{}
-	}
-
-	if n < len(s) {
-		args = append(args, s[n:])
-	}
 	return args
 }
 

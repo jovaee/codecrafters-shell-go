@@ -2,27 +2,34 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
+	"strconv"
 	"strings"
 )
 
-var builtins = []string{
-	"echo",
-	"exit",
-	"type",
+type CommandType string
+
+const (
+	BUILTIN  CommandType = "builtin"
+	EXTERNAL CommandType = "external"
+)
+
+type Command struct {
+	Name string
+	Type CommandType
+	Path string
+	Func func([]string)
 }
 
-func indexOf(element string, data []string) int {
-	for k, v := range data {
-		if element == v {
-			return k
-		}
-	}
-	return -1
-}
+var BuiltinRegister = map[string]Command{}
 
 func main() {
+
+	// Load all builtins.
+	registerBuiltins()
 
 	for {
 		fmt.Fprint(os.Stdout, "$ ")
@@ -42,69 +49,101 @@ func main() {
 			continue
 		}
 
-		if command == "exit 0" {
-			exit()
+		tokens := strings.Split(command, " ")
+		c, err := getCommand(tokens[0])
+		if err != nil {
+			fmt.Fprintf(os.Stdout, "%s: command not found\n", tokens[0])
+			continue
 		}
 
-		tokens := strings.Split(command, " ")
-		switch tokens[0] {
-		case "echo":
-			echo(tokens[1:])
-			continue
-		case "type":
-			type_(tokens[1:])
-			continue
-		default:
-			fmt.Fprintf(os.Stdout, "%s: command not found\n", command)
+		if c.Type == BUILTIN {
+			c.Func(tokens[1:])
+		} else {
+			execExternal(c, tokens[1:])
 		}
 	}
 }
 
-// Commands
-func exit() {
-	os.Exit(0)
+// Load all custom builtins into the register
+func registerBuiltins() {
+	BuiltinRegister["echo"] = Command{Name: "echo", Type: BUILTIN, Func: echo}
+	BuiltinRegister["exit"] = Command{Name: "exit", Type: BUILTIN, Func: exit}
+	BuiltinRegister["type"] = Command{Name: "type", Type: BUILTIN, Func: type_}
 }
 
-func echo(tokens []string) {
-	fmt.Println(strings.Join(tokens, " "))
+func execExternal(c Command, args []string) {
+	cmd := exec.Command(c.Name, args...)
+	out, _ := cmd.CombinedOutput()
+
+	fmt.Print(string(out))
 }
 
-func type_(tokens []string) {
+func getCommand(cname string) (Command, error) {
+	c, ok := BuiltinRegister[cname]
+	if ok {
+		return c, nil
+	}
+
+	c, err := loadExternalCommand(cname)
+	if err == nil {
+		return c, nil
+	}
+
+	return Command{}, errors.New("Command not found")
+}
+
+func loadExternalCommand(cname string) (Command, error) {
 	path := os.Getenv("PATH")
-
 	dirs := strings.Split(path, ":")
-	for _, command := range tokens {
-		found := false
 
-		// First check if it's a defined builtin
-		if indexOf(command, builtins) != -1 {
-			fmt.Fprintf(os.Stdout, "%s is a shell builtin\n", command)
+	for _, d := range dirs {
+		_, err := os.Stat(d + "/" + cname)
+		if err != nil {
 			continue
 		}
 
-		// If it's not a builtin then search through PATH
-		for _, d := range dirs {
+		return Command{Name: cname, Type: EXTERNAL, Path: d + "/" + cname}, nil
+	}
 
-			entries, err := os.ReadDir(d)
-			if err != nil {
-				continue
-			}
+	return Command{}, errors.New("Command not found in path")
+}
 
-			for _, e := range entries {
-				if e.Name() == command {
-					fmt.Fprintf(os.Stdout, "%s is %s/%s\n", command, d, command)
-					found = true
-					break
-				}
-			}
+// Builtins
+func exit(args []string) {
+	if len(args) != 1 {
+		fmt.Println("exit: incorrect number of arguments")
+		return
+	}
 
-			if found {
-				break
-			}
+	code, err := strconv.Atoi(args[0])
+	if err != nil {
+		fmt.Fprintf(os.Stdout, "exit %s: invalid exit code", args[0])
+		return
+	}
+
+	os.Exit(code)
+}
+
+func echo(args []string) {
+	fmt.Println(strings.Join(args, " "))
+}
+
+func type_(args []string) {
+
+	for _, a := range args {
+
+		_, ok := BuiltinRegister[a]
+		if ok {
+			fmt.Fprintf(os.Stdout, "%s is a shell builtin\n", a)
+			continue
 		}
 
-		if !found {
-			fmt.Fprintf(os.Stdout, "%s: not found\n", command)
+		c, err := loadExternalCommand(a)
+		if err != nil {
+			fmt.Fprintf(os.Stdout, "%s: not found\n", a)
+			continue
 		}
+
+		fmt.Fprintf(os.Stdout, "%s is %s\n", a, c.Path)
 	}
 }

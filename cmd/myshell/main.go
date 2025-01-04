@@ -49,14 +49,23 @@ func main() {
 			continue
 		}
 
-		tokens := strings.Split(command, " ")
-		c, err := getCommand(tokens[0])
+		// echo world test
+		// ["echo", "world test"]
+		tokens := strings.SplitN(command, " ", 2)
+
+		cname := tokens[0]
+
+		c, err := getCommand(cname)
 		if err != nil {
-			fmt.Fprintf(os.Stdout, "%s: command not found\n", tokens[0])
+			fmt.Fprintf(os.Stdout, "%s: command not found\n", cname)
 			continue
 		}
 
-		c.Func(c, tokens[1:])
+		var args []string
+		if len(tokens) > 1 {
+			args = parseArgs(tokens[1])
+		}
+		c.Func(c, args)
 	}
 }
 
@@ -67,6 +76,47 @@ func registerBuiltins() {
 	BuiltinRegister["type"] = Command{Name: "type", Type: BUILTIN, Func: type_}
 	BuiltinRegister["pwd"] = Command{Name: "pwd", Type: BUILTIN, Func: pwd}
 	BuiltinRegister["cd"] = Command{Name: "cd", Type: BUILTIN, Func: cd}
+}
+
+// Parse
+func parseArgs(s string) []string {
+
+	var pairs []byte
+	var args []string
+
+	n := 0
+	for i, c := range s {
+		// If a singlequote is found add to pairs if one isn't on the stack
+		// If one is on the stack then create a new argument
+		if c == '\'' {
+			if len(pairs) > 0 && pairs[len(pairs)-1] == '\'' {
+				pairs = pairs[:len(pairs)-1]
+				args = append(args, s[n:i])
+			} else {
+				pairs = append(pairs, '\'')
+			}
+
+			n = i + 1 // Skip the starting single quote
+			continue
+		}
+
+		// If not trying to find a matching pair and an empty space is found
+		// create a new argument
+		if len(pairs) == 0 && c == ' ' {
+			args = append(args, s[n:i])
+			n = i + 1
+		}
+	}
+
+	if len(pairs) != 0 {
+		fmt.Fprintf(os.Stdout, "arguments not enclosed")
+		return []string{}
+	}
+
+	if n < len(s) {
+		args = append(args, s[n:])
+	}
+	return args
 }
 
 func getCommand(cname string) (Command, error) {

@@ -89,9 +89,15 @@ func parseArgs(s string) []string {
 		// If a singlequote is found add to pairs if one isn't on the stack
 		// If one is on the stack then create a new argument
 		if c == '\'' {
+			// If two quotes are next to each other treat it as a continuous string
+			if (i+1 < len(s) && s[i+1] == byte(c)) || (i-1 >= 0 && s[i-1] == byte(c)) {
+				continue
+			}
+
 			if len(pairs) > 0 && pairs[len(pairs)-1] == '\'' {
 				pairs = pairs[:len(pairs)-1]
-				args = append(args, s[n:i])
+				v := strings.ReplaceAll(s[n:i], "''", "")
+				args = append(args, v)
 			} else {
 				pairs = append(pairs, '\'')
 			}
@@ -100,11 +106,19 @@ func parseArgs(s string) []string {
 			continue
 		}
 
-		// If not trying to find a matching pair and an empty space is found
-		// create a new argument
-		if len(pairs) == 0 && c == ' ' {
-			args = append(args, s[n:i])
-			n = i + 1
+		if len(pairs) == 0 {
+			// If the starting pointer is an empty space then simply skip the char
+			if s[n] == ' ' {
+				n += 1
+				continue
+			}
+
+			// If the following character is whitespace then create a new argument
+			if i+1 < len(s) && s[i+1] == ' ' {
+				args = append(args, s[n:i+1])
+				n = i + 1
+				continue
+			}
 		}
 	}
 

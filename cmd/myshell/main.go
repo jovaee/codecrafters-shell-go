@@ -9,7 +9,8 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
-	"unicode"
+
+	"github.com/codecrafters-io/shell-starter-go/cmd/myshell/parser"
 )
 
 type CommandType string
@@ -68,7 +69,8 @@ func main() {
 
 		var args []string
 		if len(tokens) > 1 {
-			args = parseArgs(tokens[1])
+			p := parser.New(tokens[1])
+			args = p.Parse()
 		}
 		c.Func(c, args)
 	}
@@ -81,87 +83,6 @@ func registerBuiltins() {
 	BuiltinRegister["type"] = Command{Name: "type", Type: BUILTIN, Func: type_}
 	BuiltinRegister["pwd"] = Command{Name: "pwd", Type: BUILTIN, Func: pwd}
 	BuiltinRegister["cd"] = Command{Name: "cd", Type: BUILTIN, Func: cd}
-}
-
-// Parse
-func parseArgs(s string) []string {
-
-	var args []string
-
-	n := 0
-	for {
-		// fmt.Printf("=====\n")
-		// fmt.Printf("n=%d\n", n)
-
-		var r byte
-
-		if n >= len(s) {
-			break
-		}
-
-		switch s[n] {
-		case '\'':
-			r = '\''
-		case '"':
-			r = '"'
-		default:
-			r = 0
-		}
-
-		// Enclosing characters in single quotes preserves the literal value of each character within the quotes.
-		// ie just take the chars as is
-		if s[n] == r {
-			k := n
-			// fmt.Printf("quote\n")
-
-			for {
-				// fmt.Printf("quote inner full s=%s\n", s[k:])
-				i := strings.IndexByte(s[k+1:], s[n])
-				// fmt.Printf("quote inner i=%d\n", i)
-				// fmt.Printf("quote inner k=%d\n", k)
-
-				if i == -1 {
-					// Invalid quoting
-					return []string{}
-				}
-
-				i = k + i + 1
-
-				// If two quotes are next to each other treat it as a continuous string
-				if i < len(s)-1 && s[i] == s[i+1] {
-					k = i + 2
-					continue
-				} else {
-					k = i
-					break
-				}
-			}
-
-			// fmt.Printf("quote inner part s=%s\n", s[n+1:k])
-
-			v := string(s[n]) + string(s[n])
-			args = append(args, strings.ReplaceAll(s[n+1:k], v, ""))
-			n = k + 1
-			continue
-		} else if !unicode.IsSpace(rune(s[n])) {
-			i := strings.IndexFunc(s[n:], func(r rune) bool {
-				return r == '\'' || r == '"'
-			})
-			// fmt.Printf("normal i=%d\n", i)
-
-			if i == -1 {
-				i = len(s) + 1
-			}
-
-			args = append(args, strings.Fields(s[n:i-1])...)
-			n = i
-			continue
-		}
-
-		n += 1
-	}
-
-	return args
 }
 
 func getCommand(cname string) (Command, error) {

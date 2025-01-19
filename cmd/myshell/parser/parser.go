@@ -25,21 +25,27 @@ func New(input string) Parser {
 	}
 }
 
-func (p *Parser) String() {
+func (p *Parser) Print() {
 	fmt.Printf("Parser{input: %s, position: %d, current: [%c]}\n", string(p.input), p.position, p.Current())
 }
 
 func (p *Parser) Parse() []string {
 
 	var tokens []string
+	var parts []string
 
 	for p.HasCurrent() {
 		var s string = ""
 
-		// p.String()
+		// p.Print()
 
+		// Check if a space which separates the tokens. If not a space
+		// then parse correct and append to the current token.
 		if unicode.IsSpace(p.Current()) {
-			// Unquoted space can be ignored
+			if parts != nil {
+				tokens = append(tokens, strings.Join(parts, ""))
+				parts = nil
+			}
 			p.Next()
 		} else {
 			switch p.Current() {
@@ -53,10 +59,13 @@ func (p *Parser) Parse() []string {
 		}
 
 		if s != "" {
-			tokens = append(tokens, s)
+			parts = append(parts, s)
 		}
 	}
 
+	if parts != nil {
+		tokens = append(tokens, strings.Join(parts, ""))
+	}
 	return tokens
 }
 
@@ -85,7 +94,7 @@ func (p *Parser) Current() rune {
 func (p *Parser) ParseWord() string {
 	sb := strings.Builder{}
 
-	for p.HasCurrent() && !unicode.IsSpace(p.Current()) {
+	for p.HasCurrent() && !slices.Contains([]rune{'\'', '"', ' '}, p.Current()) {
 		if p.Current() == '\\' {
 			p.Next()
 		}
@@ -141,12 +150,11 @@ func (p *Parser) ParseDoubleQuotes() string {
 		if p.Current() == '"' {
 
 			// Check if two double quotes are next to each other
-			// If so, the consume both effectively concatting the two strings
+			// If so, the consume both effectively concatenating the two strings
 			p.Next()
 			if p.Current() == '"' {
 				p.Next()
 				continue
-
 			}
 
 			// Give back the character consumed since the second one wasn't
@@ -161,6 +169,7 @@ func (p *Parser) ParseDoubleQuotes() string {
 			// consume the backslash and only append the special character
 			p.Next()
 			if !slices.Contains(SpecialCharacters, p.Current()) {
+				// It wasn't a special character so go one back and append the backslash as is
 				p.Backtrack()
 			}
 		}

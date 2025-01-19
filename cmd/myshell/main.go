@@ -55,24 +55,17 @@ func main() {
 			continue
 		}
 
-		// echo world test
-		// ["echo", "world test"]
-		tokens := strings.SplitN(command, " ", 2)
+		p := parser.New(command)
+		tokens := p.Parse()
 
-		cname := tokens[0]
-
-		c, err := getCommand(cname)
+		// For now assume first token is the command
+		c, err := getCommand(tokens[0])
 		if err != nil {
-			fmt.Fprintf(os.Stdout, "%s: command not found\n", cname)
+			fmt.Fprintf(os.Stdout, "%s: command not found\n", tokens[0])
 			continue
 		}
 
-		var args []string
-		if len(tokens) > 1 {
-			p := parser.New(tokens[1])
-			args = p.Parse()
-		}
-		c.Func(c, args)
+		c.Func(c, tokens[1:])
 	}
 }
 

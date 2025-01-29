@@ -8,25 +8,25 @@ import (
 )
 
 type Parser struct {
-	input            []rune
-	position         int
-	isInSingleQuotes bool
-	isInDoubleQuotes bool
+	Input            []rune
+	Position         int
+	IsInSingleQuotes bool
+	IsInDoubleQuotes bool
 }
 
 var SpecialCharacters = []rune{'\\', '"', '$', '`'}
 
 func New(input string) Parser {
 	return Parser{
-		input:            []rune(input),
-		position:         0,
-		isInSingleQuotes: false,
-		isInDoubleQuotes: false,
+		Input:            []rune(input),
+		Position:         0,
+		IsInSingleQuotes: false,
+		IsInDoubleQuotes: false,
 	}
 }
 
 func (p *Parser) Print() {
-	fmt.Printf("Parser{input: %s, position: %d, current: [%c]}\n", string(p.input), p.position, p.Current())
+	fmt.Printf("Parser{input: %s, position: %d, current: [%c]}\n", string(p.Input), p.Position, p.Current())
 }
 
 func (p *Parser) Parse() []string {
@@ -50,13 +50,18 @@ func (p *Parser) Parse() []string {
 		} else {
 			switch p.Current() {
 			case '\'':
-				s = p.ParseSingleQuotes()
+				p.IsInSingleQuotes = true
+				s = p.ParseQuotes()
 			case '"':
-				s = p.ParseDoubleQuotes()
+				p.IsInDoubleQuotes = true
+				s = p.ParseQuotes()
 			default:
 				s = p.ParseWord()
 			}
 		}
+
+		p.IsInDoubleQuotes = false
+		p.IsInSingleQuotes = false
 
 		if s != "" {
 			parts = append(parts, s)
@@ -70,22 +75,22 @@ func (p *Parser) Parse() []string {
 }
 
 func (p *Parser) Backtrack() {
-	if p.position > 0 {
-		p.position--
+	if p.Position > 0 {
+		p.Position--
 	}
 }
 
 func (p *Parser) Next() {
-	p.position++
+	p.Position++
 }
 
 func (p *Parser) HasCurrent() bool {
-	return p.position < len(p.input)
+	return p.Position < len(p.Input)
 }
 
 func (p *Parser) Current() rune {
 	if p.HasCurrent() {
-		return p.input[p.position]
+		return p.Input[p.Position]
 	}
 
 	return 0
@@ -106,64 +111,35 @@ func (p *Parser) ParseWord() string {
 	return sb.String()
 }
 
-func (p *Parser) ParseSingleQuotes() string {
+func (p *Parser) ParseQuotes() string {
 	// https://www.gnu.org/software/bash/manual/bash.html#Single-Quotes
-	p.Next() // Consume the opening single quote
-
-	sb := strings.Builder{}
-	for p.HasCurrent() {
-		if p.Current() == '\'' {
-
-			// Check if two single quotes are next to each other
-			// If so, the consume both effectively concatting the two strings
-			p.Next()
-			if p.Current() == '\'' {
-				p.Next()
-				continue
-
-			}
-
-			// Give back the character consumed since the second one wasn't
-			// another single quote
-			p.Backtrack()
-			break
-		}
-
-		sb.WriteRune(p.Current())
-		p.Next()
-	}
-
-	if p.Current() != '\'' {
-		panic("unmatched single quote")
-	}
-	p.Next() // Consume the closing single quote
-
-	return sb.String()
-}
-
-func (p *Parser) ParseDoubleQuotes() string {
 	// https://www.gnu.org/software/bash/manual/bash.html#Double-Quotes
-	p.Next() // Consume the opening double quote
+	p.Next() // Consume the opening quote
+
+	mc := '\''
+	if p.IsInDoubleQuotes {
+		mc = '"'
+	}
 
 	sb := strings.Builder{}
 	for p.HasCurrent() {
-		if p.Current() == '"' {
+		if p.Current() == mc {
 
-			// Check if two double quotes are next to each other
+			// Check if two quotes are next to each other
 			// If so, the consume both effectively concatenating the two strings
 			p.Next()
-			if p.Current() == '"' {
+			if p.Current() == mc {
 				p.Next()
 				continue
 			}
 
 			// Give back the character consumed since the second one wasn't
-			// another double quote
+			// another quote
 			p.Backtrack()
 			break
 		}
 
-		if p.Current() == '\\' {
+		if p.IsInDoubleQuotes && p.Current() == '\\' {
 			// https://www.gnu.org/software/bash/manual/bash.html#Escape-Character
 			// If the character after the backslash is a special character, then
 			// consume the backslash and only append the special character
@@ -178,10 +154,10 @@ func (p *Parser) ParseDoubleQuotes() string {
 		p.Next()
 	}
 
-	if p.Current() != '"' {
-		panic("unmatched double quote")
+	if p.Current() != mc {
+		panic("unmatched quote")
 	}
-	p.Next() // Consume the closing double quote
+	p.Next() // Consume the closing quote
 
 	return sb.String()
 }
